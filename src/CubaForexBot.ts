@@ -76,7 +76,7 @@ export class CubaForexBot{
         bot.on("message", replyWithIntro);
     }
 
-    // start:: Buy command
+    // start:: Buy command to post buy offer
     private setUpBuyCommand(bot: Bot){
         bot.command("buy", this.handleBuyCommand );
         bot.command("comprar", this.handleBuyCommand );
@@ -265,7 +265,26 @@ export class CubaForexBot{
             ctx.editMessageText(message)
         })
     }
-    // end:: Buy command
+    // end:: Buy command to post buy offer
+
+    // start:: Sell command to post sell offer
+    private setUpSellCommand(){
+
+    }
+    private handleSellCommand = (ctx: CommandContext<Context>) => {
+        const message = "Que moneda desea vender?";
+        
+        const options = { reply_markup: new InlineKeyboard() };
+      
+        const keyboard = options.reply_markup;
+
+        const data = 'op:sell';
+
+        this.selectCurrencyKeyboard( keyboard, data, this.currencies, 'pc' );
+        
+        ctx.reply( message, options );
+    }
+    // end:: Sell command to post sell offer
 
     // start:: Show ops commad
     private setUpShowOrdersCommand(bot: Bot){

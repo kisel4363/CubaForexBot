@@ -1,47 +1,34 @@
-import { Bot, InlineKeyboard, webhookCallback } from "grammy";
+import { Bot, CommandContext, CommandMiddleware, Context, InlineKeyboard, InlineQueryContext, Keyboard, webhookCallback } from "grammy";
 import { chunk } from "lodash";
 import express from "express";
 import { applyTextEffect, Variant } from "./textEffects";
 
 import type { Variant as TextEffectVariant } from "./textEffects";
+import { InlineKeyboardButton } from "grammy/out/types";
+
+const TELEGRAM_TOKEN="7489205472:AAErIX--3QpSMZaYqhIRM0cOo76L9FRnsRE";
 
 // Create a bot using the Telegram token
-const bot = new Bot(process.env.TELEGRAM_TOKEN || "");
+const bot = new Bot(TELEGRAM_TOKEN || "");
 
 // Handle the /yo command to greet the user
-bot.command("yo", (ctx) => ctx.reply(`Yo ${ctx.from?.username}`));
+bot.command("yo", (ctx: CommandContext<Context>) => ctx.reply(`Yo ${ctx.from?.username}`));
 
 // Handle the /effect command to apply text effects using an inline keyboard
 type Effect = { code: TextEffectVariant; label: string };
 const allEffects: Effect[] = [
-  {
-    code: "w",
-    label: "Monospace",
-  },
-  {
-    code: "b",
-    label: "Bold",
-  },
-  {
-    code: "i",
-    label: "Italic",
-  },
-  {
-    code: "d",
-    label: "Doublestruck",
-  },
-  {
-    code: "o",
-    label: "Circled",
-  },
-  {
-    code: "q",
-    label: "Squared",
-  },
+  { code: "w", label: "Monospace" },
+  { code: "b", label: "Bold" },
+  { code: "i", label: "Italic" },
+  { code: "d", label: "Doublestruck" },
+  { code: "o", label: "Circled" },
+  { code: "q", label: "Squared" },
 ];
 
-const effectCallbackCodeAccessor = (effectCode: TextEffectVariant) =>
-  `effect-${effectCode}`;
+const effectCallbackCodeAccessor = (effectCode: TextEffectVariant) =>{
+  console.log("INLINE KEYBOARD RESPONSE", effectCode)
+  return `effect-${effectCode}`;
+}
 
 const effectsKeyboardAccessor = (effectCodes: string[]) => {
   const effectsAccessor = (effectCodes: string[]) =>
@@ -51,7 +38,9 @@ const effectsKeyboardAccessor = (effectCodes: string[]) => {
   const effects = effectsAccessor(effectCodes);
 
   const keyboard = new InlineKeyboard();
+
   const chunkedEffects = chunk(effects, 3);
+  
   for (const effectsChunk of chunkedEffects) {
     for (const effect of effectsChunk) {
       effect &&
@@ -63,40 +52,100 @@ const effectsKeyboardAccessor = (effectCodes: string[]) => {
   return keyboard;
 };
 
-const textEffectResponseAccessor = (
-  originalText: string,
-  modifiedText?: string
-) =>
+const textEffectResponseAccessor = ( originalText: string, modifiedText?: string ) =>
   `Original: ${originalText}` +
   (modifiedText ? `\nModified: ${modifiedText}` : "");
 
-const parseTextEffectResponse = (
-  response: string
-): {
-  originalText: string;
-  modifiedText?: string;
-} => {
-  const originalText = (response.match(/Original: (.*)/) as any)[1];
-  const modifiedTextMatch = response.match(/Modified: (.*)/);
+const parseTextEffectResponse = ( response: string): { originalText: string; modifiedText?: string; } => {
+
+  let originalText;
+  const originalTextMatch = (response.match(/Original: (.*)/) as any);
+  console.log('Original match', originalTextMatch)
+  if( originalTextMatch )
+    originalText = originalTextMatch[1];
+  else
+    originalText = "No se introdujo texto";
 
   let modifiedText;
-  if (modifiedTextMatch) modifiedText = modifiedTextMatch[1];
-
-  if (!modifiedTextMatch) return { originalText };
-  else return { originalText, modifiedText };
+  const modifiedTextMatch = response.match(/Modified: (.*)/);
+  console.log('Modified match', modifiedTextMatch)
+  if (modifiedTextMatch) 
+    modifiedText = modifiedTextMatch[1];
+  else 
+    modifiedText = "No se introdujo texto";
+  
+  return { originalText, modifiedText };
 };
 
-bot.command("effect", (ctx) =>
+bot.command("effect", (ctx) => {
   ctx.reply(textEffectResponseAccessor(ctx.match), {
     reply_markup: effectsKeyboardAccessor(
       allEffects.map((effect) => effect.code)
     ),
   })
+  }
 );
+
+// ++++++++++++++ OMAR SECTION +++++++++++++++++
+// START BUY COMMAND SETUP
+const amounts = [ "10", "20", "50", "100"];
+
+const createSelectCoinsKeyboard = (keyboard: InlineKeyboard, coins: string[]) => {
+  coins.forEach( (coin, index) => {
+    keyboard.text( coin, coin )
+    if( index === 2 )
+      keyboard.row();
+  })
+}
+const setUpSelectCoinsKeyboardListener = (bot: Bot, coins: string[]) => {
+  coins.forEach( coin => {
+    bot.callbackQuery( coin, ctx => {
+      const message = "Que cantidad?";
+      const options = { reply_markup: new InlineKeyboard() };
+
+      const keyboard = options.reply_markup;
+      createSelectAmountKeyboard( keyboard, amounts)
+      
+      ctx.editMessageText( message, options )
+    })
+  })
+};
+
+const setUpSelectAmountKeyboardListeners = ( bot: Bot, amounts: string[] ) => {
+  amounts.forEach( amount => {
+    bot.callbackQuery( amount, ctx => {
+      ctx.reply( "Vas a comprar " + amount)
+    } )
+  })
+}
+const createSelectAmountKeyboard = ( keyboard: InlineKeyboard, amounts: string[]) => {
+  amounts.forEach( amount => {
+    keyboard.text( amount, amount )
+  })
+}
+
+const coins = ["USD", "EUR", "CAD", "BTC", "ETH", "USDT"];
+
+let handleBuyCommand: CommandMiddleware<Context> = (ctx) => {
+  const message = "Que moneda?";
+  
+  const options = { reply_markup: new InlineKeyboard() };
+
+  const keyboard = options.reply_markup;
+  createSelectCoinsKeyboard( keyboard, coins );
+  
+  ctx.reply( message, options );
+}
+
+bot.command("buy", handleBuyCommand);
+bot.command("comprar", handleBuyCommand);
+setUpSelectCoinsKeyboardListener( bot, coins );
+setUpSelectAmountKeyboardListeners( bot, amounts );
+// END BUY COMMAND SETUP
 
 // Handle inline queries
 const queryRegEx = /effect (monospace|bold|italic) (.*)/;
-bot.inlineQuery(queryRegEx, async (ctx) => {
+bot.inlineQuery(queryRegEx, async (ctx: InlineQueryContext<Context>) => {
   const fullQuery = ctx.inlineQuery.query;
   const fullQueryMatch = fullQuery.match(queryRegEx);
   if (!fullQueryMatch) return;
@@ -121,7 +170,7 @@ Modified: ${modifiedText}`,
           parse_mode: "HTML",
         },
         reply_markup: new InlineKeyboard().switchInline("Share", fullQuery),
-        url: "http://t.me/EludaDevSmarterBot",
+        url: "http://t.me/CubanForexBot",
         description: "Create stylish Unicode text, all within Telegram.",
       },
     ],
@@ -159,11 +208,13 @@ const aboutUrlKeyboard = new InlineKeyboard().url(
 
 // Suggest commands in the menu
 bot.api.setMyCommands([
-  { command: "yo", description: "Be greeted by the bot" },
-  {
-    command: "effect",
-    description: "Apply text effects on the text. (usage: /effect [text])",
-  },
+  // { command: "yo", description: "Be greeted" },
+  // {
+  //   command: "effect",
+  //   description: "Text effects. (usage: /effect [text])",
+  // },
+  { command: "buy", description: "Comprar divisas"},
+  { command: "comprar", description: "Comprar divisas"}
 ]);
 
 // Handle all other messages and the /start command
