@@ -39,7 +39,7 @@ export class CubaForexBot{
 
     public startServer(){
         // Start the server
-        if (process.env.NODE_ENV === "production") {
+        // if (process.env.NODE_ENV === "production") {
             // Use Webhooks for the production server
             const app = express();
             app.use(express.json());
@@ -49,10 +49,10 @@ export class CubaForexBot{
             app.listen(PORT, () => {
             console.log(`Bot listening on port ${PORT}`);
             });
-        } else {
-            // Use Long Polling for development
-            this.bot.start();
-        }
+        // } else {
+        //     // Use Long Polling for development
+        //     this.bot.start();
+        // }
     }
 
     private replyAllOtherMessagesAndStartCmd(bot: Bot){
