@@ -1,23 +1,42 @@
 import express, { query } from "express";
 import { Bot, CommandContext, Context, InlineKeyboard, webhookCallback } from "grammy";
+import { setInterval } from "timers/promises";
 
 const TELEGRAM_TOKEN="7489205472:AAErIX--3QpSMZaYqhIRM0cOo76L9FRnsRE";
-
+interface OperationState { opened: boolean, openedBy: { chatId: number, user: string, date: Date }[], finished: boolean, finishedBy: { user: string, date: Date} }
 interface Operator { id: number, first_name: string, last_name: string | undefined, username: string | undefined }
-interface Order { operator?: Operator, operation?:string, p_currency?: string, amount?: number, s_currency?: string, price?: number, date?: Date };
+interface Order { _id?: string, operator?: Operator, operation?:string, p_currency?: string, amount?: number, s_currency?: string, price?: number, date?: Date, state?: OperationState };
 export class CubaForexBot{
     private bot: Bot;
     private amounts = [ "5", "10", "20", "100"];
     private currencies = ["USD", "EUR", "CAD", "BTC", "USDT", "ETH"];
-    private postedOperations: Order[] = []
+    private postedOperations: Order[] = [];
+
+    private cronTaskInterval = 20; //hours
+
+    private buyExamples: Order[] = [
+        // {   
+        //     _id: "alksdj35lkqjerhlkgx",
+        //     operator: { id: 1, first_name: "Lazaro", last_name: "Oscar", username: 'lazarito_94'},
+        //     operation: 'buy', p_currency: "USD", amount: 4, s_currency: "CUP", price: 320, date: new Date(),
+        //     state: { opened: false, openedBy: [], finished: false, finishedBy: { user: "", date: new Date()} }
+        // }
+    ]
 
     constructor(){
         this.bot = new Bot(TELEGRAM_TOKEN);
 
-        this.setUpBuyCommand( this.bot );
+        // start:: Set up commands
+        this.setUpPostBuyCommand( this.bot );
 
-        this.setUpShowOrdersCommand( this.bot )
+        this.setUpPostSellCommand( this.bot );
 
+        this.setUpShowBuyOrdersCommand( this.bot );
+        
+        this.setUpShowSellOrdersCommand( this.bot );
+        // end:: Set up commands
+
+        // start:: Listeners for post buys and sells
         this.listenSelectPrincipalCurrency( this.bot );
 
         this.listenSetPrincipalCurrencyAmount( this.bot );
@@ -31,10 +50,43 @@ export class CubaForexBot{
         this.listenFinishSelectPrice( this.bot );
 
         this.listenConfirmOperation( this.bot );
+        // end:: Listeners for post buys and sells
+
+        // start:: Listeners for open operations
+        this.listenOpenOperation(this.bot)
+        // end:: Listeners for open operations
 
         this.setUpAllCommands(this.bot);
 
         this.replyAllOtherMessagesAndStartCmd(this.bot);
+
+        this.loadOffersExamples();
+
+        this.setUpCronTasks(this.bot);
+    }
+
+    private loadOffersExamples(){
+        this.postedOperations = this.buyExamples;
+    }
+
+    private async setUpCronTasks(bot: Bot){
+        //* 60 * 60 * 1000
+        for await (const _ of setInterval( this.cronTaskInterval * 1000)){
+            console.log("STARTING CRON")
+            const openedOperations = this.postedOperations
+                .filter( op => op.state?.opened)
+                .flatMap( op => op.state?.openedBy.map( opb => ({chatId: opb.chatId, user: opb.user, _id: op._id})) );
+            
+            console.log("OPENED", openedOperations)
+            openedOperations.forEach( op => {
+                const keyboard = new InlineKeyboard()
+                keyboard.text('Termine');
+                keyboard.text('No Termine');
+                //@ts-ignore
+                bot.api.sendMessage(op.chatId, `Terminaste la operacion ${op._id}?`, { reply_markup: keyboard })
+            })
+            console.log("FINISH CRON")
+        }
     }
 
     public startServer(){
@@ -76,10 +128,15 @@ export class CubaForexBot{
         bot.on("message", replyWithIntro);
     }
 
+    // start:: Sell command to post sell offer
+    private setUpPostSellCommand(bot: Bot){
+        bot.command("publica_venta", this.handleSellCommand)
+    }
+    // end:: Sell command to post sell offer
+
     // start:: Buy command to post buy offer
-    private setUpBuyCommand(bot: Bot){
-        bot.command("buy", this.handleBuyCommand );
-        bot.command("comprar", this.handleBuyCommand );
+    private setUpPostBuyCommand(bot: Bot){
+        bot.command("publica_compra", this.handleBuyCommand );
     }
 
     private handleBuyCommand = (ctx: CommandContext<Context>) => {
@@ -229,7 +286,7 @@ export class CubaForexBot{
             const keyboard = options.reply_markup;
             this.confirmKeyboard( keyboard, data );
 
-            ctx.editMessageText( message, options )
+            ctx.editMessageText( message, options );
         })
     }
 
@@ -256,7 +313,13 @@ export class CubaForexBot{
                     last_name: ctx.from.last_name,
                     username: ctx.from.username
                 }
-                const order: Order = {operator, operation, p_currency, amount: Number(amount), s_currency, price: Number(price), date: new Date()}
+                const order: Order = {
+                    _id: this.generateUid(),
+                    operator, operation, 
+                    p_currency, amount: Number(amount), 
+                    s_currency, price: Number(price), date: new Date(),
+                    state: { opened: false, openedBy: [], finished: false, finishedBy: { user: "", date: new Date()} }
+                }
                 this.postedOperations.push(order)
             } else {
                 message = "Operacion cancelada"
@@ -268,9 +331,6 @@ export class CubaForexBot{
     // end:: Buy command to post buy offer
 
     // start:: Sell command to post sell offer
-    private setUpSellCommand(){
-
-    }
     private handleSellCommand = (ctx: CommandContext<Context>) => {
         const message = "Que moneda desea vender?";
         
@@ -287,18 +347,65 @@ export class CubaForexBot{
     // end:: Sell command to post sell offer
 
     // start:: Show ops commad
-    private setUpShowOrdersCommand(bot: Bot){
-        bot.command("orders", this.handleShowOrdersCommand );
+    private setUpShowSellOrdersCommand(bot: Bot){
+        // bot.command("ver_vendedores", this.handleShowOrdersCommand );
+    }
+    private setUpShowBuyOrdersCommand(bot: Bot){
+        bot.command("ver_compradores", this.handleShowBuyOrdersCommand );
     }
 
-    private handleShowOrdersCommand = (ctx: CommandContext<Context>) => {
-        let message = `======== ORDENES ========\n`;
+    private generateUid(){
+        const alphabet: string[] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'o'];
+        const date = new Date();
+        const ms = date.valueOf().toString();
+        const arrayId: string[] = [];
+        for (let pos = 0; pos < ms.length; pos++) {
+            const char = ms.charAt(pos);
+            const index = Number(char);
+            arrayId.push( alphabet[index] );
+        }
+        return arrayId.join("");
+    }
 
-        this.postedOperations.forEach( ( order, index ) => {
-            message = `${message} ${index+1}: ${order.operation} ${order.amount} ${order.p_currency} a ${order.price} ${order.s_currency}\n`;
+    private handleShowBuyOrdersCommand = (ctx: CommandContext<Context>) => {
+        const header = `........................  COMPRADORES  ........................`;
+        ctx.reply( header )
+            .then( () => {
+                this.postedOperations.forEach( ( order, index ) => {
+                    //@ts-ignore
+                    const offer = `${order.amount} ${order.p_currency} a ${order.price} ${order.s_currency} son ${order.amount * order.price} ${order.s_currency}`;
+                    const user = order.operator?.username as string;
+                    const keyboard = new InlineKeyboard();
+                    console.log("handleShowBuyOrdersCommand", `open_op _id:${order._id} operator:${user}`)
+                    keyboard.text("Abrir operacion", `open_op _id:${order._id} operator:${user}`)
+                    ctx.reply(offer, { reply_markup: keyboard})
+                })
+            })
+    }
+
+    private listenOpenOperation(bot: Bot){
+        const trigger = /open_op _id:\w+ operator:\w+/
+        const queryMatch = /open_op _id:(\w+) operator:(\w+)/
+        bot.callbackQuery( trigger, ctx => {
+            console.log("RECEIVED OPEN OPERATION EVENT")
+            const [_, operationId, operatorUsername] = ctx.callbackQuery.data.match(queryMatch) as string[];
+            
+            const openedBy = ctx.from.username as string;
+            const chatId = ctx.chat?.id as number;
+            this.markOpenedOperation(operationId, openedBy, chatId)
+            const keyboard = new InlineKeyboard();
+            keyboard.url( 'Contactar', `t.me/${operatorUsername}`)
+
+            ctx.editMessageReplyMarkup( {reply_markup: keyboard} )
         })
-        
-        ctx.reply( message );
+    }
+
+    private markOpenedOperation(operationId: string, openedBy: string, chatId: number){
+        const openedOperation = this.postedOperations.find( op => op._id === operationId);
+        //@ts-ignore
+        openedOperation?.state["opened"] = true;
+        openedOperation?.state?.openedBy.push( { chatId, user: openedBy, date: new Date() } );
+        console.log("OPENED_OPERATION", openedOperation)
     }
     // end:: Show ops commad
 
@@ -358,9 +465,10 @@ export class CubaForexBot{
     // start:: Set up bot commands
     private setUpAllCommands(bot: Bot){
         bot.api.setMyCommands([
-            // { command: "buy", description: "Comprar divisas"},
-            { command: "comprar", description: "Comprar divisas"},
-            { command: "orders", description: "Ver ordenes"}
+            { command: "publica_compra", description: "Publicar oferta de compra"},
+            { command: "publica_venta", description: "Publicar oferta de venta"},
+            { command: "ver_compradores", description: "Ver compradores"},
+            // { command: "ver_vendedores", description: "Ver vendaedores"}
         ]);
     }
     // end:: Set up bot commands
