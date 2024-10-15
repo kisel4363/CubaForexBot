@@ -148,9 +148,9 @@ export class CubaForexBot{
     public startServerWithMongo(){
         // Initialiting express app for mongo
         const app = express();
-        app.use(express.json());
-        app.use(webhookCallback(this.bot, "express"));
-        // this.bot.start();
+        // app.use(express.json());
+        // app.use(webhookCallback(this.bot, "express"));
+        this.bot.start();
         // start:: Set up mongo
         (mongoose as any).Promise = bluebird;
 
