@@ -149,8 +149,8 @@ export class CubaForexBot{
         // Initialiting express app for mongo
         const app = express();
         app.use(express.json());
-        // app.use(webhookCallback(this.bot, "express"));
-        this.bot.start();
+        app.use(webhookCallback(this.bot, "express"));
+        // this.bot.start();
         // start:: Set up mongo
         (mongoose as any).Promise = bluebird;
 
@@ -159,7 +159,7 @@ export class CubaForexBot{
             useNewUrlParser: true,
             useUnifiedTopology: true
         };
-        const connectionString = GLOBAL_CONFIG.production.local_db;
+        const connectionString = GLOBAL_CONFIG.production.hosted_db;
         return mongoose.connect(connectionString, connectionOptions )
             .then( () => {
                 console.log("Connected to mongo db")
