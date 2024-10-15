@@ -9,21 +9,19 @@
     "dev": "env-cmd ts-node-dev src/bot.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "typeRoots": [
+    "node_modules/@types"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/eludadev/telegram-bot.git"
   },
   "keywords": [
-    "chat",
     "bot",
-    "unicode",
-    "social-media",
     "bots",
     "telegram",
     "serverless",
-    "telegram-bot",
-    "chatbot",
-    "text-effects"
+    "telegram-bot"
   ],
   "author": "eludadev",
   "license": "MIT",
@@ -32,17 +30,25 @@
   },
   "homepage": "https://github.com/eludadev/telegram-bot#readme",
   "devDependencies": {
+    "@types/bluebird": "^3.5.42",
     "@types/express": "^4.17.14",
     "@types/lodash": "^4.14.188",
     "@types/node": "^18.11.7",
     "@types/node-fetch": "^2.6.2",
     "env-cmd": "^10.1.0",
-    "ts-node-dev": "^2.0.0",
+    "ts-node": "^10.5.0",
     "typescript": "^4.8.4"
   },
   "dependencies": {
+    "bluebird": "^3.7.2",
+    "core-js": "^3.38.1",
+    "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "gitignore": "^0.7.0",
     "grammy": "^1.11.2",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "mongoose": "^5.13.22",
+    "mongoose-middleware": "^2.0.1",
+    "uuid": "^10.0.0"
   }
 }

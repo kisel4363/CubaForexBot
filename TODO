@@ -1,0 +1,16 @@
+CubaForexBot:
+  Finish Implementation of 'Remember user to close operation' mechanism:
+    ✔ Mejorar el mensaje que se manda para q el user se ubique a q operacion se refiere el bot @done(24-10-10 11:37)
+    ☐ Si se le notifica 5 veces y no presiona ningun boton en el keyboard se cierra la operacion inconclusa
+  Mejorar flujo de compra venta:
+    ☐ Implementar validaciones en el selector de cantidades quitando el next cuando la entrada no es correcta
+    ✔ Implementar el flujo avanzado para q con un sms el user pueda postear una operacion el formato sera: "operacion amount p_curr price s_curr" ejemplo "buy 5 USD 320 CUP" @done(24-10-10 11:37)
+    ☐ Implementar validaciones del flujo avanzado para que no se rompa el bot
+    ✔ Implementar mecanismo para recordarle a un usuario q abrio una operacion que la cierre @done(24-10-10 11:38)
+    ☐ Agregar un boton para q el usuario vea el listado de operaciones abiertas
+  Montar la bd de mongo en el bot:
+    ✔ Implementar los metodos para un crud de una operacion en base de datos @done(24-10-10 11:52)
+  Implementar mecanismos para adiministrar posteos:
+    ✔ Agregar comando para que pueda listar sus operaciones @done(24-10-15 03:26)
+    ✔ El usuario q publica un posteo ebe tener la posibilidad de eliminarlo o marcarlo como completado @done(24-10-15 03:55)
+

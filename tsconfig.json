@@ -1,9 +1,11 @@
 {
   "extends": "@tsconfig/node12/tsconfig.json",
   "compilerOptions": {
-    "module": "CommonJS",
+    "module": "commonjs",
     "outDir": "dist"
   },
-  "include": ["src/bot.ts", "environment.d.ts"],
-  "exclude": ["node_modules"]
+  "include": [ "src/bot.ts", "environment.d.ts" ],
+  "exclude": [ "node_modules" ],
+  "typeRoots": [ "node_modules/@types", "src/@types" ],
+  "ts-node": { "transpileOnly": true }
 }

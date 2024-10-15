@@ -1,5 +1,6 @@
 import { CubaForexBot } from "./CubaForexBot";
 
-const cubanForexBot = new CubaForexBot();
+const cubaForexBot = new CubaForexBot();
 
-cubanForexBot.startServer();
+// cubaForexBot.startServer();
+cubaForexBot.startServerWithMongo()
